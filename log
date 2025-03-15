@@ -1,0 +1,15 @@
+[33m3482c88[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{0}: reset: moving to HEAD~1
+[33mbb6e7a6[m[33m ([m[1;33mtag: [m[1;33mv1.0[m[33m)[m HEAD@{1}: reset: moving to HEAD
+[33mbb6e7a6[m[33m ([m[1;33mtag: [m[1;33mv1.0[m[33m)[m HEAD@{2}: reset: moving to HEAD
+[33mbb6e7a6[m[33m ([m[1;33mtag: [m[1;33mv1.0[m[33m)[m HEAD@{3}: checkout: moving from main to main
+[33mbb6e7a6[m[33m ([m[1;33mtag: [m[1;33mv1.0[m[33m)[m HEAD@{4}: reset: moving to HEAD
+[33mbb6e7a6[m[33m ([m[1;33mtag: [m[1;33mv1.0[m[33m)[m HEAD@{5}: commit: Add build/web v1.0
+[33m3482c88[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{6}: checkout: moving from web to main
+[33m4083042[m HEAD@{7}: commit: add build/web v1.0
+[33m310d988[m HEAD@{8}: commit: Eliminar build completo del repositorio remoto
+[33md72810e[m HEAD@{9}: commit: Add build web files for v1.0
+[33m3482c88[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{10}: checkout: moving from main to web
+[33m3482c88[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{11}: commit: Remove build directory from tracking
+[33m0ff1b21[m HEAD@{12}: commit (amend): First web build
+[33m89d2593[m HEAD@{13}: Branch: renamed refs/heads/master to refs/heads/main
+[33m89d2593[m HEAD@{15}: commit (initial): First web build
