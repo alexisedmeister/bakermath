@@ -16,25 +16,36 @@ class RecipesScreenState extends State<RecipesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadRecipes();
+    _initializeBox();
   }
 
-  Future<void> _loadRecipes() async {
+  Future<void> _initializeBox() async {
     recipesBox = await Hive.openBox('recipes');
+    _loadRecipes();
+
+    // ✅ Escucha cambios en la base de datos y actualiza automáticamente
+    recipesBox.watch().listen((_) => _loadRecipes());
+  }
+
+  void _loadRecipes() {
+    final recipes = recipesBox.values.cast<Map>().toList();
     setState(() {
-      _recipes = recipesBox.values.map((recipe) {
-        return {
-          'name': recipe['name']?.toString() ?? '',
-          'description': recipe['description']?.toString() ?? '',
-          'ingredients': List<Map<String, dynamic>>.from(recipe['ingredients'] ?? []),
-        };
-      }).toList();
+      _recipes = recipes
+          .map((recipe) => {
+                'name': recipe['name']?.toString() ?? '',
+                'description': recipe['description']?.toString() ?? '',
+                'ingredients': List<Map<String, dynamic>>.from(recipe['ingredients'] ?? []),
+              })
+          .toList();
+
+      // ✅ Ordena recetas A-Z solo si hay cambios
+      _recipes.sort((a, b) => a['name'].toLowerCase().compareTo(b['name'].toLowerCase()));
     });
   }
 
   Future<void> _deleteRecipe(int index) async {
     await recipesBox.deleteAt(index);
-    _loadRecipes();
+    // 🔹 No es necesario llamar a `_loadRecipes()`, porque `watch()` ya escucha los cambios
   }
 
   void _showDeleteConfirmationDialog(int index) {
@@ -66,34 +77,44 @@ class RecipesScreenState extends State<RecipesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recipes'),
+        title: Text('Recipes (${_recipes.length})'),
       ),
-      body: ListView.builder(
-        itemCount: _recipes.length,
-        itemBuilder: (context, index) {
-          final recipe = _recipes[index];
-          return ListTile(
-            title: Text(recipe['name']),
-            subtitle: Text(recipe['description']),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => RecipesAddScreen(
-                    recipe: recipe,
-                    recipeIndex: index,
+      body: _recipes.isEmpty
+          ? const Center(child: Text('No recipes available.'))
+          : ListView.builder(
+              itemCount: _recipes.length,
+              itemBuilder: (context, index) {
+                final recipe = _recipes[index];
+                return ListTile(
+                  title: Text(recipe['name']),
+                  subtitle: Text(recipe['description']),
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RecipesAddScreen(
+                          recipe: recipe,
+                          recipeIndex: index,
+                        ),
+                      ),
+                    );
+                  },
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'Delete') {
+                        _showDeleteConfirmationDialog(index);
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => [
+                      const PopupMenuItem(
+                        value: 'Delete',
+                        child: Text('Delete'),
+                      ),
+                    ],
                   ),
-                ),
-              );
-              _loadRecipes(); // Recargar recetas tras editar
-            },
-            trailing: IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _showDeleteConfirmationDialog(index),
+                );
+              },
             ),
-          );
-        },
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await Navigator.push(
@@ -102,7 +123,6 @@ class RecipesScreenState extends State<RecipesScreen> {
               builder: (context) => const RecipesAddScreen(),
             ),
           );
-          _loadRecipes();
         },
         child: const Icon(Icons.add),
       ),

@@ -31,7 +31,10 @@ class CalculatorScreenState extends State<CalculatorScreen> {
       _recipes = recipes.map((r) => r['name'] as String).toList();
       _recipeData = {
         for (var recipe in recipes)
-          recipe['name']: { for (var item in recipe['ingredients']) item['ingredient'] as String : item['quantity'] as double }
+          recipe['name']: { 
+            for (var item in recipe['ingredients']) 
+              item['ingredient'] as String : item['quantity'] as double 
+          }
       };
     });
   }
@@ -117,15 +120,12 @@ class CalculatorScreenState extends State<CalculatorScreen> {
                 },
               ),
             const SizedBox(height: 16),
-            const Text(
-              'Enter Weight (kg):',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            TextField(
+            // ✅ Se reemplaza el Text + TextField por un solo TextFormField con labelText
+            TextFormField(
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
+                labelText: 'Enter Weight (kg):', // ✅ Agregado directamente aquí
                 border: OutlineInputBorder(),
-                hintText: 'Enter weight in kilograms',
               ),
               onChanged: (value) {
                 setState(() {

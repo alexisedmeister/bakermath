@@ -44,69 +44,83 @@ class RecipesAddScreenState extends State<RecipesAddScreen> {
     await showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text(index != null ? 'Edit Ingredient' : 'Add Ingredient'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (index == null) // Solo seleccionar ingrediente al agregar uno nuevo
-                DropdownButtonFormField<String>(
-                  value: selectedIngredient,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedIngredient = value;
-                    });
-                  },
-                  items: ingredientsBox.values.map<DropdownMenuItem<String>>((ingredient) {
-                    final name = ingredient is Map<String, dynamic> ? ingredient['name'] as String : ingredient.toString();
-                    return DropdownMenuItem<String>(
-                      value: name,
-                      child: Text(name),
-                    );
-                  }).toList(),
-                  decoration: const InputDecoration(
-                    labelText: 'Select Ingredient',
-                    border: OutlineInputBorder(),
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: Text(index != null ? 'Edit Ingredient' : 'Add Ingredient'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (index == null)
+                    DropdownButtonFormField<String>(
+                      value: selectedIngredient,
+                      onChanged: (value) {
+                        setStateDialog(() {
+                          selectedIngredient = value;
+                        });
+                      },
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('Select Ingredient'),
+                        ),
+                        ...ingredientsBox.values.map<DropdownMenuItem<String>>((ingredient) {
+                          final name = ingredient is Map<String, dynamic> ? ingredient['name'] as String : ingredient.toString();
+                          return DropdownMenuItem<String>(
+                            value: name,
+                            child: Text(name),
+                          );
+                        }),
+                      ],
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: quantityController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Quantity (kg)',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: quantityController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Quantity (kg)',
-                  border: OutlineInputBorder(),
-                ),
+                ],
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                if ((selectedIngredient != null || index != null) &&
-                    quantityController.text.isNotEmpty &&
-                    double.tryParse(quantityController.text) != null) {
-                  setState(() {
-                    final ingredientData = {
-                      'ingredient': selectedIngredient ?? _selectedIngredients[index!]['ingredient'],
-                      'quantity': double.parse(quantityController.text),
-                    };
-                    if (index == null) {
-                      _selectedIngredients.add(ingredientData);
-                    } else {
-                      _selectedIngredients[index] = ingredientData;
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(), // Cierra solo con "Cancel"
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    if ((selectedIngredient != null || index != null) &&
+                        quantityController.text.isNotEmpty &&
+                        double.tryParse(quantityController.text) != null) {
+                      final ingredientData = {
+                        'ingredient': selectedIngredient ?? _selectedIngredients[index!]['ingredient'],
+                        'quantity': double.parse(quantityController.text),
+                      };
+                      setState(() {
+                        if (index == null) {
+                          _selectedIngredients.add(ingredientData);
+                        } else {
+                          _selectedIngredients[index] = ingredientData;
+                        }
+                      });
+
+                      // ✅ Mantener el diálogo abierto y limpiar los campos
+                      setStateDialog(() {
+                        selectedIngredient = null; // Resetear selección
+                        quantityController.clear(); // Limpiar cantidad
+                      });
                     }
-                  });
-                  Navigator.of(context).pop();
-                }
-              },
-              child: Text(index != null ? 'Update' : 'Add'),
-            ),
-          ],
+                  },
+                  child: Text(index != null ? 'Update' : 'Add Another'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

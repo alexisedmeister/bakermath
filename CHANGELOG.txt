@@ -1,0 +1,26 @@
+CHANGELOG 
+
+V1.1.0
+
+🔹 INGREDIENTS
+✅ Sort ingredients A-Z
+✅ Prevent deletion of ingredients used in recipes
+✅ Display ingredient count in AppBar
+✅ Keep Add Ingredient dialog open until canceled
+
+🔹 home.dart file
+❌ Removed
+
+🔹 HOME SCREEN
+✅ Display ingredient & recipe count
+
+🔹 RECIPES
+✅ Sort recipes A-Z
+✅ Display recipe count in AppBar
+✅ Replace delete icon with PopupMenuItem
+
+🔹 RECIPES ADD
+✅ Keep Add Ingredient dialog open until canceled
+
+🔹 BACKUP
+🆕 New screen for exporting/importing data as JSON
