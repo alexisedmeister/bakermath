@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 class RecipesAddScreen extends StatefulWidget {
   final Map<String, dynamic>? recipe;
-  final int? recipeIndex;
+  final dynamic recipeKey;
 
-  const RecipesAddScreen({super.key, this.recipe, this.recipeIndex});
+  const RecipesAddScreen({super.key, this.recipe, this.recipeKey});
 
   @override
   RecipesAddScreenState createState() => RecipesAddScreenState();
@@ -28,17 +29,16 @@ class RecipesAddScreenState extends State<RecipesAddScreen> {
     if (widget.recipe != null) {
       _nameController.text = widget.recipe!['name'];
       _descriptionController.text = widget.recipe!['description'];
-      _selectedIngredients.addAll(widget.recipe!['ingredients']);
+      _selectedIngredients.addAll(List<Map<String, dynamic>>.from(widget.recipe!['ingredients']));
     }
   }
 
-  Future<void> _showAddIngredientDialog({int? index}) async {
-    String? selectedIngredient;
+  Future<void> _showAddIngredientDialog({Map<String, dynamic>? existingIngredient}) async {
+    String? selectedIngredient = existingIngredient?['ingredient'];
     final TextEditingController quantityController = TextEditingController();
 
-    if (index != null) {
-      selectedIngredient = _selectedIngredients[index]['ingredient'];
-      quantityController.text = _selectedIngredients[index]['quantity'].toString();
+    if (existingIngredient != null) {
+      quantityController.text = existingIngredient['quantity'].toStringAsFixed(2);
     }
 
     await showDialog(
@@ -47,11 +47,11 @@ class RecipesAddScreenState extends State<RecipesAddScreen> {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
-              title: Text(index != null ? 'Edit Ingredient' : 'Add Ingredient'),
+              title: Text(existingIngredient != null ? 'Edit Ingredient' : 'Add Ingredient'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (index == null)
+                  if (existingIngredient == null)
                     DropdownButtonFormField<String>(
                       value: selectedIngredient,
                       onChanged: (value) {
@@ -59,19 +59,13 @@ class RecipesAddScreenState extends State<RecipesAddScreen> {
                           selectedIngredient = value;
                         });
                       },
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: null,
-                          child: Text('Select Ingredient'),
-                        ),
-                        ...ingredientsBox.values.map<DropdownMenuItem<String>>((ingredient) {
-                          final name = ingredient is Map<String, dynamic> ? ingredient['name'] as String : ingredient.toString();
-                          return DropdownMenuItem<String>(
-                            value: name,
-                            child: Text(name),
-                          );
-                        }),
-                      ],
+                      items: ingredientsBox.keys.map<DropdownMenuItem<String>>((key) {
+                        final String ingredientName = ingredientsBox.get(key);
+                        return DropdownMenuItem<String>(
+                          value: key.toString(),
+                          child: Text(ingredientName),
+                        );
+                      }).toList(),
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                       ),
@@ -89,34 +83,32 @@ class RecipesAddScreenState extends State<RecipesAddScreen> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(), // Cierra solo con "Cancel"
+                  onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Cancel'),
                 ),
                 TextButton(
                   onPressed: () {
-                    if ((selectedIngredient != null || index != null) &&
+                    if ((selectedIngredient != null || existingIngredient != null) &&
                         quantityController.text.isNotEmpty &&
                         double.tryParse(quantityController.text) != null) {
-                      final ingredientData = {
-                        'ingredient': selectedIngredient ?? _selectedIngredients[index!]['ingredient'],
-                        'quantity': double.parse(quantityController.text),
-                      };
+                      final ingredientKey = selectedIngredient ?? existingIngredient!['ingredient'];
+                      final quantity = double.parse(quantityController.text);
                       setState(() {
-                        if (index == null) {
-                          _selectedIngredients.add(ingredientData);
+                        if (existingIngredient != null) {
+                          existingIngredient['quantity'] = quantity;
                         } else {
-                          _selectedIngredients[index] = ingredientData;
+                          _selectedIngredients.add({'ingredient': ingredientKey, 'quantity': quantity});
                         }
                       });
 
-                      // ✅ Mantener el diálogo abierto y limpiar los campos
+                      // Mantener el cuadro de diálogo abierto limpiando los valores en lugar de cerrarlo
                       setStateDialog(() {
-                        selectedIngredient = null; // Resetear selección
-                        quantityController.clear(); // Limpiar cantidad
+                        selectedIngredient = null;
+                        quantityController.clear();
                       });
                     }
                   },
-                  child: Text(index != null ? 'Update' : 'Add Another'),
+                  child: Text(existingIngredient != null ? 'Update' : 'Add'),
                 ),
               ],
             );
@@ -126,9 +118,9 @@ class RecipesAddScreenState extends State<RecipesAddScreen> {
     );
   }
 
-  void _deleteIngredient(int index) {
+  void _deleteIngredient(Map<String, dynamic> ingredient) {
     setState(() {
-      _selectedIngredients.removeAt(index);
+      _selectedIngredients.remove(ingredient);
     });
   }
 
@@ -139,11 +131,8 @@ class RecipesAddScreenState extends State<RecipesAddScreen> {
       'ingredients': _selectedIngredients,
     };
 
-    if (widget.recipeIndex != null) {
-      await recipesBox.putAt(widget.recipeIndex!, newRecipe);
-    } else {
-      await recipesBox.add(newRecipe);
-    }
+    final String recipeKey = widget.recipeKey ?? const Uuid().v4();
+    await recipesBox.put(recipeKey, newRecipe);
 
     if (mounted) {
       Navigator.of(context).pop();
@@ -187,14 +176,16 @@ class RecipesAddScreenState extends State<RecipesAddScreen> {
                 itemCount: _selectedIngredients.length,
                 itemBuilder: (context, index) {
                   final ingredient = _selectedIngredients[index];
+                  final ingredientName = ingredientsBox.get(ingredient['ingredient']);
+                  final quantity = ingredient['quantity'];
                   return ListTile(
-                    title: Text('${ingredient['ingredient']} - ${ingredient['quantity']} kg'),
+                    title: Text('$ingredientName - ${quantity.toStringAsFixed(2)} kg'),
                     trailing: PopupMenuButton<String>(
                       onSelected: (value) {
                         if (value == 'Edit') {
-                          _showAddIngredientDialog(index: index);
+                          _showAddIngredientDialog(existingIngredient: ingredient);
                         } else if (value == 'Delete') {
-                          _deleteIngredient(index);
+                          _deleteIngredient(ingredient);
                         }
                       },
                       itemBuilder: (context) => [

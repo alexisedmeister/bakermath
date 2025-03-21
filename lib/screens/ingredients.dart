@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 class IngredientsScreen extends StatefulWidget {
   const IngredientsScreen({super.key});
@@ -9,30 +10,17 @@ class IngredientsScreen extends StatefulWidget {
 }
 
 class IngredientsScreenState extends State<IngredientsScreen> {
-  late Box ingredientsBox;
-  late Box recipesBox;
-  List<dynamic> _ingredients = [];
+  late final Box ingredientsBox = Hive.box('ingredients');
+  late final Box recipesBox = Hive.box('recipes');
 
-  @override
-  void initState() {
-    super.initState();
-    _loadIngredients();
-  }
+  final TextEditingController _searchController = TextEditingController();
+  String _searchTerm = '';
 
-  Future<void> _loadIngredients() async {
-    ingredientsBox = await Hive.openBox('ingredients');
-    recipesBox = await Hive.openBox('recipes');
-    setState(() {
-      _ingredients = ingredientsBox.values.toList();
-      _ingredients.sort((a, b) => a.toString().toLowerCase().compareTo(b.toString().toLowerCase()));
-    });
-  }
-
-  bool _isIngredientUsed(String ingredientName) {
+  bool _isIngredientUsed(String ingredientKey) {
     for (var recipe in recipesBox.values) {
       if (recipe['ingredients'] != null) {
         for (var ingredient in recipe['ingredients']) {
-          if (ingredient['ingredient'] == ingredientName) {
+          if (ingredient['ingredient'] == ingredientKey) {
             return true;
           }
         }
@@ -42,22 +30,19 @@ class IngredientsScreenState extends State<IngredientsScreen> {
   }
 
   Future<void> _addIngredient(String name) async {
-    await ingredientsBox.add(name);
-    _loadIngredients();
+    final String ingredientKey = Uuid().v4();
+    await ingredientsBox.put(ingredientKey, name);
   }
 
-  Future<void> _editIngredient(int index, String newName) async {
-    await ingredientsBox.putAt(index, newName);
-    _loadIngredients();
+  Future<void> _editIngredient(dynamic key, String newName) async {
+    await ingredientsBox.put(key, newName);
   }
 
-  Future<void> _deleteIngredient(int index) async {
-    String ingredientName = _ingredients[index];
-    if (_isIngredientUsed(ingredientName)) {
-      _showCannotDeleteDialog(ingredientName);
+  Future<void> _deleteIngredient(dynamic key) async {
+    if (_isIngredientUsed(key)) {
+      _showCannotDeleteDialog(ingredientsBox.get(key));
     } else {
-      await ingredientsBox.deleteAt(index);
-      _loadIngredients();
+      await ingredientsBox.delete(key);
     }
   }
 
@@ -79,7 +64,7 @@ class IngredientsScreenState extends State<IngredientsScreen> {
     );
   }
 
-  void _showEditIngredientDialog(int index, String currentName) {
+  void _showEditIngredientDialog(dynamic key, String currentName) {
     final TextEditingController controller = TextEditingController(text: currentName);
 
     showDialog(
@@ -99,7 +84,7 @@ class IngredientsScreenState extends State<IngredientsScreen> {
             TextButton(
               onPressed: () {
                 if (controller.text.isNotEmpty) {
-                  _editIngredient(index, controller.text);
+                  _editIngredient(key, controller.text);
                 }
                 Navigator.pop(context);
               },
@@ -111,7 +96,7 @@ class IngredientsScreenState extends State<IngredientsScreen> {
     );
   }
 
-  void _showDeleteConfirmationDialog(int index) {
+  void _showDeleteConfirmationDialog(dynamic key) {
     showDialog(
       context: context,
       builder: (context) {
@@ -126,7 +111,7 @@ class IngredientsScreenState extends State<IngredientsScreen> {
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                _deleteIngredient(index);
+                _deleteIngredient(key);
               },
               child: const Text('Delete'),
             ),
@@ -177,35 +162,75 @@ class IngredientsScreenState extends State<IngredientsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Ingredients (${_ingredients.length})'),
+        title: ValueListenableBuilder(
+          valueListenable: Hive.box('ingredients').listenable(),
+          builder: (context, Box box, _) {
+            return Text('Ingredients (${box.keys.length})');
+          },
+        ),
       ),
-      body: ListView.builder(
-        itemCount: _ingredients.length,
-        itemBuilder: (context, index) {
-          final ingredient = _ingredients[index];
-          return ListTile(
-            title: Text(ingredient),
-            trailing: PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'Edit') {
-                  _showEditIngredientDialog(index, ingredient);
-                } else if (value == 'Delete') {
-                  _showDeleteConfirmationDialog(index);
-                }
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                labelText: 'Search ingredients',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchTerm = value.toLowerCase();
+                });
               },
-              itemBuilder: (BuildContext context) => [
-                const PopupMenuItem(
-                  value: 'Edit',
-                  child: Text('Edit'),
-                ),
-                const PopupMenuItem(
-                  value: 'Delete',
-                  child: Text('Delete'),
-                ),
-              ],
             ),
-          );
-        },
+          ),
+          Expanded(
+            child: ValueListenableBuilder(
+              valueListenable: Hive.box('ingredients').listenable(),
+              builder: (context, Box box, _) {
+                final ingredients = box.toMap();
+                final filtered = ingredients.entries.where((entry) {
+                  final name = entry.value.toString().toLowerCase();
+                  return name.contains(_searchTerm);
+                }).toList()
+                  ..sort((a, b) => a.value.toString().compareTo(b.value.toString()));
+
+                return ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final key = filtered[index].key;
+                    final ingredient = filtered[index].value;
+                    return ListTile(
+                      title: Text(ingredient),
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'Edit') {
+                            _showEditIngredientDialog(key, ingredient);
+                          } else if (value == 'Delete') {
+                            _showDeleteConfirmationDialog(key);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => [
+                          const PopupMenuItem(
+                            value: 'Edit',
+                            child: Text('Edit'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'Delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddIngredientDialog,

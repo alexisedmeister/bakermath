@@ -1,26 +1,44 @@
-CHANGELOG 
+BakerMath V2.0.0 – Changelog
 
-V1.1.0
+This is a major release with internal upgrades, UI enhancements, and stronger data handling. Please note: this version is not compatible with previous data due to structural changes.
 
-🔹 INGREDIENTS
-✅ Sort ingredients A-Z
-✅ Prevent deletion of ingredients used in recipes
-✅ Display ingredient count in AppBar
-✅ Keep Add Ingredient dialog open until canceled
+🚀 What’s New and Improved
 
-🔹 home.dart file
-❌ Removed
+🔹 Smarter Backup & Restore  
+- Backup functionality has been refactored and improved.  
+- Now checks the app version when importing files to ensure compatibility.  
+- Better handling of file operations on both web and mobile platforms.  
+- More stable and reliable than before.
 
-🔹 HOME SCREEN
-✅ Display ingredient & recipe count
+🔹 Search Bars for Ingredients and Recipes  
+- Quickly find what you need using new search fields on both lists.  
+- Designed for speed when managing many items.
 
-🔹 RECIPES
-✅ Sort recipes A-Z
-✅ Display recipe count in AppBar
-✅ Replace delete icon with PopupMenuItem
+🔹 Persistent and Reactive Data Access  
+- The app now uses live Hive listeners (ValueListenableBuilder) for ingredients and recipes.  
+- Changes are instantly reflected across screens, with no manual refresh needed.
 
-🔹 RECIPES ADD
-✅ Keep Add Ingredient dialog open until canceled
+🔹 Unique Identifiers for Data  
+- Ingredients and recipes now use UUIDs instead of numeric keys.  
+- This change improves data integrity and future-proofs your database.  
+- Internally, recipes now reference ingredients by their UUIDs rather than list indices.
 
-🔹 BACKUP
-🆕 New screen for exporting/importing data as JSON
+🔹 Improved Ingredient Dialog  
+- The “Add Ingredient” dialog now remains open, letting you add multiple items without repeating clicks.  
+- A smoother and more efficient way to build your ingredient list.
+
+🔹 Refactored Calculator and Editor Logic  
+- Calculator logic was cleaned and restructured for better maintainability.  
+- Recipes are now edited with internal consistency using UUID references.
+
+🛠 Bug Fixes
+
+- Fixed UI updates that previously failed to refresh after editing items.  
+- Prevented crashes when deleting ingredients used in recipes.  
+- Improved reliability of JSON file import/export on all platforms.  
+- General enhancements to performance and stability.
+
+⚠️ Important Compatibility Note
+
+This version is not compatible with data from previous versions (1.x) due to the shift to UUID-based storage.  
+Please export your data first and re-enter it manually, or start fresh with the new version.

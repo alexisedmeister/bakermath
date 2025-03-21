@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'recipesadd.dart';
 
 class RecipesScreen extends StatefulWidget {
@@ -10,45 +10,17 @@ class RecipesScreen extends StatefulWidget {
 }
 
 class RecipesScreenState extends State<RecipesScreen> {
-  late Box recipesBox;
-  List<Map<String, dynamic>> _recipes = [];
+  late final Box recipesBox = Hive.box('recipes');
 
-  @override
-  void initState() {
-    super.initState();
-    _initializeBox();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchTerm = '';
+
+  Future<void> _deleteRecipe(dynamic key) async {
+    await recipesBox.delete(key);
+    setState(() {});
   }
 
-  Future<void> _initializeBox() async {
-    recipesBox = await Hive.openBox('recipes');
-    _loadRecipes();
-
-    // ✅ Escucha cambios en la base de datos y actualiza automáticamente
-    recipesBox.watch().listen((_) => _loadRecipes());
-  }
-
-  void _loadRecipes() {
-    final recipes = recipesBox.values.cast<Map>().toList();
-    setState(() {
-      _recipes = recipes
-          .map((recipe) => {
-                'name': recipe['name']?.toString() ?? '',
-                'description': recipe['description']?.toString() ?? '',
-                'ingredients': List<Map<String, dynamic>>.from(recipe['ingredients'] ?? []),
-              })
-          .toList();
-
-      // ✅ Ordena recetas A-Z solo si hay cambios
-      _recipes.sort((a, b) => a['name'].toLowerCase().compareTo(b['name'].toLowerCase()));
-    });
-  }
-
-  Future<void> _deleteRecipe(int index) async {
-    await recipesBox.deleteAt(index);
-    // 🔹 No es necesario llamar a `_loadRecipes()`, porque `watch()` ya escucha los cambios
-  }
-
-  void _showDeleteConfirmationDialog(int index) {
+  void _showDeleteConfirmationDialog(dynamic key) {
     showDialog(
       context: context,
       builder: (context) {
@@ -62,7 +34,7 @@ class RecipesScreenState extends State<RecipesScreen> {
             ),
             TextButton(
               onPressed: () {
-                _deleteRecipe(index);
+                _deleteRecipe(key);
                 Navigator.pop(context);
               },
               child: const Text('Delete'),
@@ -77,44 +49,90 @@ class RecipesScreenState extends State<RecipesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Recipes (${_recipes.length})'),
+        title: ValueListenableBuilder(
+          valueListenable: recipesBox.listenable(),
+          builder: (context, Box box, _) {
+            return Text('Recipes (${box.keys.length})');
+          },
+        ),
       ),
-      body: _recipes.isEmpty
-          ? const Center(child: Text('No recipes available.'))
-          : ListView.builder(
-              itemCount: _recipes.length,
-              itemBuilder: (context, index) {
-                final recipe = _recipes[index];
-                return ListTile(
-                  title: Text(recipe['name']),
-                  subtitle: Text(recipe['description']),
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => RecipesAddScreen(
-                          recipe: recipe,
-                          recipeIndex: index,
-                        ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                labelText: 'Search recipes',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchTerm = value.toLowerCase();
+                });
+              },
+            ),
+          ),
+          Expanded(
+            child: ValueListenableBuilder(
+              valueListenable: recipesBox.listenable(),
+              builder: (context, Box box, _) {
+                if (box.isEmpty) {
+                  return const Center(child: Text('No recipes available.'));
+                }
+
+                final recipeMap = box.toMap();
+                final filteredKeys = recipeMap.keys.where((key) {
+                  final name = recipeMap[key]['name'].toString().toLowerCase();
+                  return name.contains(_searchTerm);
+                }).toList()
+                  ..sort((a, b) => recipeMap[a]['name']
+                      .toLowerCase()
+                      .compareTo(recipeMap[b]['name'].toLowerCase()));
+
+                return ListView.builder(
+                  itemCount: filteredKeys.length,
+                  itemBuilder: (context, index) {
+                    final key = filteredKeys[index];
+                    final recipe = recipeMap[key];
+
+                    return ListTile(
+                      title: Text(recipe['name']),
+                      subtitle: Text(recipe['description']),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => RecipesAddScreen(
+                              recipe: recipe,
+                              recipeKey: key,
+                            ),
+                          ),
+                        );
+                        setState(() {});
+                      },
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == 'Delete') {
+                            _showDeleteConfirmationDialog(key);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => [
+                          const PopupMenuItem(
+                            value: 'Delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
                       ),
                     );
                   },
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'Delete') {
-                        _showDeleteConfirmationDialog(index);
-                      }
-                    },
-                    itemBuilder: (BuildContext context) => [
-                      const PopupMenuItem(
-                        value: 'Delete',
-                        child: Text('Delete'),
-                      ),
-                    ],
-                  ),
                 );
               },
             ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await Navigator.push(
@@ -123,6 +141,7 @@ class RecipesScreenState extends State<RecipesScreen> {
               builder: (context) => const RecipesAddScreen(),
             ),
           );
+          setState(() {});
         },
         child: const Icon(Icons.add),
       ),

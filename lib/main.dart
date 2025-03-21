@@ -2,12 +2,13 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'screens/ingredients.dart';
 import 'screens/recipes.dart';
 import 'screens/calculator.dart';
-import 'screens/backup.dart'; // ✅ Importar BackupScreen
+import 'screens/backup.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (kIsWeb) {
@@ -43,26 +44,55 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  HomeScreenState createState() => HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class HomeScreenState extends State<HomeScreen> {
-  int ingredientCount = 0;
-  int recipeCount = 0;
+class _HomeScreenState extends State<HomeScreen> {
+  String _version = '';
 
   @override
   void initState() {
     super.initState();
-    _loadCounts();
+    _loadVersion();
   }
 
-  Future<void> _loadCounts() async {
-    final ingredientsBox = Hive.box('ingredients');
-    final recipesBox = Hive.box('recipes');
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
     setState(() {
-      ingredientCount = ingredientsBox.length;
-      recipeCount = recipesBox.length;
+      _version = info.version;
     });
+  }
+
+  void _showAboutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('About Bakermath', textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '© alexisedmeister',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'v$_version',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -72,28 +102,36 @@ class HomeScreenState extends State<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          ListTile(
-            leading: const Icon(Icons.list_alt),
-            title: Text('Ingredients ($ingredientCount)'),
-            subtitle: const Text('Manage your ingredients'),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const IngredientsScreen()),
+          ValueListenableBuilder(
+            valueListenable: Hive.box('ingredients').listenable(),
+            builder: (context, Box box, _) {
+              return ListTile(
+                leading: const Icon(Icons.list_alt),
+                title: Text('Ingredients (${box.length})'),
+                subtitle: const Text('Manage your ingredients'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const IngredientsScreen()),
+                  );
+                },
               );
-              _loadCounts();
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.receipt),
-            title: Text('Recipes ($recipeCount)'),
-            subtitle: const Text('Manage your recipes'),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const RecipesScreen()),
+          ValueListenableBuilder(
+            valueListenable: Hive.box('recipes').listenable(),
+            builder: (context, Box box, _) {
+              return ListTile(
+                leading: const Icon(Icons.receipt),
+                title: Text('Recipes (${box.length})'),
+                subtitle: const Text('Manage your recipes'),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const RecipesScreen()),
+                  );
+                },
               );
-              _loadCounts();
             },
           ),
           ListTile(
@@ -107,7 +145,7 @@ class HomeScreenState extends State<HomeScreen> {
               );
             },
           ),
-          const Divider(), // ✅ Separador visual
+          const Divider(),
           ListTile(
             leading: const Icon(Icons.backup),
             title: const Text('Backup & Restore'),
@@ -118,6 +156,13 @@ class HomeScreenState extends State<HomeScreen> {
                 MaterialPageRoute(builder: (context) => const BackupScreen()),
               );
             },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('About'),
+            subtitle: const Text('Version and credits'),
+            onTap: _showAboutDialog,
           ),
         ],
       ),
